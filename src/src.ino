@@ -4,6 +4,9 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <config.h>
+#include <ArduinoJson.h>
+#include <map>
+#include <iostream>
 
 HTTPClient http;
 WiFiClientSecure client;
@@ -12,23 +15,20 @@ Ticker ticker;
 
 const char* ssid = "";
 const char* password = "";
-// const char* graphql_endpoint_main = "https://notarobot.pythonanywhere.com/graphql";
-const char* graphql_endpoint_main = "graphql_endpoint";
+const char* graphql_endpoint_main = "https://fakeroot.shuttleapp.rs";
 const char* secretKey = "your_secret_key";
 
-void disablePromiscuousMode() {
-  wifi_promiscuous_enable(DISABLE);
-  os_timer_disarm(&channelHop_timer);
-}
+const char* fetchQuery = "{\"query\": \"query fetch { getMember { id macaddress } }\"}";
 
-void enablePromiscuousMode() {
-  wifi_promiscuous_enable(ENABLE);
-  os_timer_arm(&channelHop_timer, CHANNEL_HOP_INTERVAL_MS, 1);
-}
+StaticJsonDocument<2000> memberData;
+
+std::map<String,String> memberMap;
 
 void setup() {
   Serial.begin(115200);
   client.setInsecure();
+
+  fetchMemberData();
   
   // set the WiFi chip to "promiscuous" mode aka monitor mode
   delay(10);
@@ -47,7 +47,62 @@ void setup() {
 
 }
 
+
+void fetchMemberData() {
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid,password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print("-");
+  }
+  int status = 0;
+  http.begin(client, graphql_endpoint_main);
+  http.addHeader("Content-Type", "application/json");
+  while (status <= 0) {
+    status = http.POST(fetchQuery);
+    delay(1000);
+  }
+  Serial.println("Member data fetched");
+  Serial.println(http.getString());
+
+  deserializeJson(memberData, http.getString());
+  http.end();
+
+  for (int i = 0; i < memberData["data"]["getMember"].size(); i++) {
+    String macAddress = memberData["data"]["getMember"][i]["macaddress"];
+    String memberId = memberData["data"]["getMember"][i]["id"];
+    memberMap[macAddress] = memberId;
+  }
+
+  Serial.println("Member map created");
+  Serial.println(memberMap.size());
+
+  memberData.clear();
+}
+
+void loop() {
+  delay(60000);
+  sendToServer();
+}
+
+void disablePromiscuousMode() {
+  wifi_promiscuous_enable(DISABLE);
+  os_timer_disarm(&channelHop_timer);
+}
+
+void enablePromiscuousMode() {
+  wifi_promiscuous_enable(ENABLE);
+  os_timer_arm(&channelHop_timer, CHANNEL_HOP_INTERVAL_MS, 1);
+}
+
 static void sendToServer() {
+  Serial.print("Found Mac Addresses size: ");
+  Serial.println(foundMacAddresses.size());
+  if (foundMacAddresses.size() == 0) {
+    return;
+  }
+
   disablePromiscuousMode();
   delay(10);
 
@@ -63,26 +118,27 @@ static void sendToServer() {
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
 
-  String graphql_query_start = "{\"query\": \"mutation MyMutation { markAttendance(macList: \\\"";
-  String graphql_query_middle = "\\\", secretKey: \\\"";
-  String graphql_query_end = "\\\") { date id memberId }}\"}";
-  
-  String macListString = "";
+  String graphql_query_start = "{\"query\": \"mutation batchAttendance {";
+  String graphql_query_middle = "";
+  // "\\\", secretKey: \\\"";
+  String graphql_query_end = "}\"}";
   for (int i = 0; i < foundMacAddresses.size(); i++) {
-    macListString += foundMacAddresses[i].c_str();
-    if (i < foundMacAddresses.size() - 1) {
-      macListString += ",";
+    if (memberMap.find(foundMacAddresses[i].c_str()) != memberMap.end()) {
+      graphql_query_middle += " a" + String(i) + ": addAttendance(id:"+memberMap[foundMacAddresses[i].c_str()] +",date:\\\"2024-08-15\\\",timein:\\\"09:00:00.123\\\",timeout:\\\"10:15:00.123\\\",isPresent:true){ id }";
     }
   }
 
-  String graphql_query = graphql_query_start + macListString + graphql_query_middle + secretKey + graphql_query_end;
+  if (graphql_query_middle == "") {
+    enablePromiscuousMode();
+    return;
+  }
+
+  String graphql_query = graphql_query_start + graphql_query_middle + graphql_query_end;
 
   Serial.println("GraphQL Query:");
   Serial.println(graphql_query);
   
   if (WiFi.status() == WL_CONNECTED) {
-    // String graphql_query = "{\"query\": \"mutation MyMutation { markAttendance(macList: \"\", secretKey: \"\") { date id memberId }}\"}";
-    
 
     http.begin(client, graphql_endpoint_main);
     http.addHeader("Content-Type", "application/json");
@@ -108,9 +164,4 @@ static void sendToServer() {
   }
   foundMacAddresses.clear();
   enablePromiscuousMode();
-}
-
-void loop() {
-  sendToServer();
-  delay(60000);
 }
