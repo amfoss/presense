@@ -1,8 +1,7 @@
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <WiFiClientSecure.h>
-#include <ESP8266HTTPClient.h>
-#include "config.h"
+#include <vector>
+#include <string>
+#include <config.h>
 
 
 extern "C" {
@@ -45,7 +44,9 @@ struct RxControl {
  unsigned:12;
 };
 
+
 const char HEMANTH_LAPTOP_MAC[] = "30:05:05:48:13:95";
+const char YOUR_LAPTOP_MAC[] = "xx.xx.xx.xx.xx.xx";
 
 struct SnifferPacket{
     struct RxControl rx_ctrl;
@@ -81,8 +82,11 @@ static void showMetadata(SnifferPacket *snifferPacket) {
   getMAC(addr, snifferPacket->data, 10);
   Serial.print(" Peer MAC: ");
   Serial.print(addr);
-  if (strcmp(addr, HEMANTH_LAPTOP_MAC) == 0) {
-    Serial.println(" found Abhirams's Laptop pog");
+  if (std::find(foundMacAddresses.begin(), foundMacAddresses.end(), addr) == foundMacAddresses.end()) {
+    foundMacAddresses.push_back(addr);
+  }
+  if (strcmp(addr, YOUR_LAPTOP_MAC) == 0) {
+    Serial.println(", found your's Laptop pog");
   }
 
   uint8_t SSID_length = snifferPacket->data[25];

@@ -1,4 +1,9 @@
 #include "config.h"
+
+std::vector<std::string> foundMacAddresses;
+
+/*
+#include "config.h"
 #include <ESP8266WiFi.h>
 #include <WiFiClientSecure.h>
 #include <ESP8266HTTPClient.h>
@@ -6,6 +11,7 @@
 const char* ssid = "your_SSID";
 const char* password = "your_PASSWORD";
 const char* graphql_endpoint = "https://your-graphql-endpoint.com/graphql";
+
 
 void sendGraphQLMutation() {
   WiFiClientSecure client;
@@ -24,7 +30,7 @@ void sendGraphQLMutation() {
     http.addHeader("Content-Type", "application/json");
 
     // Send the request
-    int httpResponseCode = http.POST(graphql_mutation);
+    int httpResponseCode  http.POST(graphql_mutation);
 
     if (httpResponseCode > 0) {
       String response = http.getString();
@@ -40,3 +46,4 @@ void sendGraphQLMutation() {
     Serial.println("Connection to GraphQL endpoint failed");
   }
 }
+*/
