@@ -7,21 +7,30 @@
 #include <ArduinoJson.h>
 #include <map>
 #include <iostream>
+#include "time.h"
+#include "sha256.h"
 
 HTTPClient http;
 WiFiClientSecure client;
 Ticker ticker;
 
+// Time related variables
+const char* ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = 19800;
+const int daylightOffset_sec = 3600;
+struct tm timeinfo;
+char dateStr[11];
 
+// Network related variables
 const char* ssid = "";
 const char* password = "";
 const char* graphql_endpoint_main = "https://fakeroot.shuttleapp.rs";
-const char* secretKey = "your_secret_key";
+const char* secretKey = "";
 
 const char* fetchQuery = "{\"query\": \"query fetch { getMember { id macaddress } }\"}";
 
+// Member data related variables
 StaticJsonDocument<2000> memberData;
-
 std::map<String,String> memberMap;
 
 void setup() {
@@ -29,7 +38,17 @@ void setup() {
   client.setInsecure();
 
   fetchMemberData();
-  
+
+  while (!getLocalTime(&timeinfo)) {
+    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+    Serial.print("+");
+    delay(500);
+  }
+
+  Serial.println("\nDate:");
+  strftime(dateStr, sizeof(dateStr), "%Y-%m-%d", &timeinfo);
+  Serial.println(dateStr);
+
   // set the WiFi chip to "promiscuous" mode aka monitor mode
   delay(10);
   wifi_set_opmode(STATION_MODE);
@@ -47,9 +66,13 @@ void setup() {
 
 }
 
+void loop() {
+  delay(60000);
+  sendToServer();
+}
 
+// Function to fetch member data from server and create a map of mac address and member id
 void fetchMemberData() {
-
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid,password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -81,21 +104,20 @@ void fetchMemberData() {
   memberData.clear();
 }
 
-void loop() {
-  delay(60000);
-  sendToServer();
-}
-
+// Diabling promiscuous mode
 void disablePromiscuousMode() {
   wifi_promiscuous_enable(DISABLE);
   os_timer_disarm(&channelHop_timer);
 }
 
+// Enabling promiscuous mode
 void enablePromiscuousMode() {
   wifi_promiscuous_enable(ENABLE);
   os_timer_arm(&channelHop_timer, CHANNEL_HOP_INTERVAL_MS, 1);
 }
 
+// Send data to server
+// This function includes logic for creating the graphql queries
 static void sendToServer() {
   Serial.print("Found Mac Addresses size: ");
   Serial.println(foundMacAddresses.size());
@@ -120,11 +142,11 @@ static void sendToServer() {
 
   String graphql_query_start = "{\"query\": \"mutation batchAttendance {";
   String graphql_query_middle = "";
-  // "\\\", secretKey: \\\"";
   String graphql_query_end = "}\"}";
   for (int i = 0; i < foundMacAddresses.size(); i++) {
     if (memberMap.find(foundMacAddresses[i].c_str()) != memberMap.end()) {
-      graphql_query_middle += " a" + String(i) + ": addAttendance(id:"+memberMap[foundMacAddresses[i].c_str()] +",date:\\\"2024-08-15\\\",timein:\\\"09:00:00.123\\\",timeout:\\\"10:15:00.123\\\",isPresent:true){ id }";
+      String member_id = memberMap[foundMacAddresses[i].c_str()];
+      graphql_query_middle += " a" + String(i) + ": markAttendance(id:"+ member_id +",date:\\\""+dateStr+"\\\",isPresent:true,hmacSignature:\\\""+ createHash(member_id,dateStr) +"\\\"){ id }";
     }
   }
 
@@ -164,4 +186,47 @@ static void sendToServer() {
   }
   foundMacAddresses.clear();
   enablePromiscuousMode();
+}
+
+// Function to convert string to uint8_t
+uint8_t* convertToUint8(const char* str) {
+    size_t len = strlen(str);
+    uint8_t* uint8Array = new uint8_t[len];
+    for (size_t i = 0; i < len; i++) {
+        uint8Array[i] = static_cast<uint8_t>(str[i]);
+    }
+    return uint8Array;
+}
+
+// Function to create SHA256 hmac hash
+String createHash(String id,String dateStr) {
+  Serial.println("Creating hash");
+  uint8_t* secret = convertToUint8(secretKey);
+  uint8_t* hash;
+  Sha256 sha;
+
+  String message = id;
+  message += dateStr;
+  message += "true";
+
+  sha.initHmac(secret, strlen(secretKey));
+
+  yield();
+
+  sha.print(message);
+  hash = sha.resultHmac();
+
+  String result = ""; 
+  for (int i = 0; i < 32; i++) {
+      if (hash[i] < 16) {
+          result += '0';
+      }
+      String byteString = String(hash[i], HEX);
+      byteString.toLowerCase();
+      result += byteString;
+  }
+
+  delete[] secret;
+  Serial.println("\nHash created");
+  return result;
 }
