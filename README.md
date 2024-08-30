@@ -1,3 +1,4 @@
-# Natalie (NAT for short)
-NAT is a Nearby Attendance Tracker script that utilises ESP32 capabilies in sniffing network probes from nearby devices!
+# Presense
+
+Presense is an attendance tracker that uilises ESP32 capabilities in sniffing network probes from nearby devices.
 
