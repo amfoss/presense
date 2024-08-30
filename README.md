@@ -1,2 +1,3 @@
-# NPAT
-NPAT or Near Pi Attendance tracker is a script that utilises. ESP32 capabilies in sniffing network probes from nearby devices!
+# Natalie (NAT for short)
+NAT is a Nearby Attendance Tracker script that utilises ESP32 capabilies in sniffing network probes from nearby devices!
+
