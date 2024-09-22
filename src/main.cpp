@@ -44,7 +44,6 @@ struct RxControl {
  unsigned:12;
 };
 
-
 const char YOUR_LAPTOP_MAC[] = "xx.xx.xx.xx.xx.xx";
 
 struct SnifferPacket{
