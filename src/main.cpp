@@ -44,8 +44,6 @@ struct RxControl {
  unsigned:12;
 };
 
-
-const char HEMANTH_LAPTOP_MAC[] = "30:05:05:48:13:95";
 const char YOUR_LAPTOP_MAC[] = "xx.xx.xx.xx.xx.xx";
 
 struct SnifferPacket{

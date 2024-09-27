@@ -10,7 +10,6 @@ extern const char* graphql_endpoint;
 
 extern std::vector<std::string> foundMacAddresses;
 
-
 extern void sendGraphQLMutation();
 
 #endif // CONFIG_H
