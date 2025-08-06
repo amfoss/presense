@@ -9,24 +9,25 @@
 #include "time.h"
 #include "mbedtls/md.h"
 #include <esp_wpa2.h>
+#include "secrets.h"
 
 HTTPClient http;
 WiFiClientSecure client;
 
 // Time-related variables
-const char* timeApiUrl = "http://api.timezonedb.com/v2.1/get-time-zone?key=API_KEY&format=json&by=zone&zone=Asia/Kolkata";
+const char* timeApiUrl = "http://api.timezonedb.com/v2.1/get-time-zone?key=" TIME_API_KEY "&format=json&by=zone&zone=Asia/Kolkata";
 const long gmtOffset_sec = 19800;
 const int daylightOffset_sec = 0;
 struct tm timeinfo;
 char dateStr[11];
 
-const char* ssid = "";
-const char* password = "";
-const char* username = "";
-const char* graphql_endpoint_main = "https://root.shuttleapp.rs";
-const char* secretKey = "";
+const char* ssid = SSID;
+const char* username = USERNAME;
+const char* password = PASSWORD;
+const char* graphql_endpoint_main = GRAPHQL_ENDPOINT;
+const char* secretKey = SECRET_KEY;
 
-const char* fetchQuery = "{\"query\": \"query fetch { getMember { id macaddress } }\"}";
+const char* fetchQuery = "{\"query\": \"query { members { memberId macAddress } }\"}";
 
 // Member data-related variables
 StaticJsonDocument<2000> memberData;
@@ -36,7 +37,7 @@ std::map<String, String> hmacMap;
 // Timer for channel hopping
 esp_timer_handle_t channelHop_timer;
 
-uint8_t newMACAddress[] = {0xD0, 0xAB, 0xD5, 0x22, 0xBE, 0x56};
+uint8_t newMACAddress[] = MAC_ADDRESS;
 
 // Setup function
 void setup() {
@@ -87,7 +88,7 @@ void setup() {
         .name = "channel_hop"
     };
     esp_timer_create(&timer_args, &channelHop_timer);
-    esp_timer_start_periodic(channelHop_timer, 500 * 1000); // 500ms interval
+    esp_timer_start_periodic(channelHop_timer, 500 * 1000);
 }
 
 void loop() {
@@ -98,9 +99,10 @@ void loop() {
 struct tm getTimeInfo() {
     struct tm timeInfo = {0};
 
-    if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("WiFi is not connected");
-        return timeInfo;
+    WiFi.begin(ssid);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print("-");
     }
 
     HTTPClient http;
@@ -167,10 +169,10 @@ void fetchMemberData() {
     deserializeJson(memberData, response);
     http.end();
 
-    for (JsonVariant member : memberData["data"]["getMember"].as<JsonArray>()) {
-        String macAddress = member["macaddress"].as<String>();
+    for (JsonVariant member : memberData["data"]["members"].as<JsonArray>()) {
+        String macAddress = member["macAddress"].as<String>();
         macAddress.toLowerCase();
-        String memberId = member["id"].as<String>();
+        String memberId = member["memberId"].as<String>();
         memberMap[macAddress] = memberId;
     }
 
@@ -190,8 +192,8 @@ void createHMACMap() {
     Serial.print("HMAC date : ");
     Serial.println(dateStr);
 
-    for (JsonVariant member : memberData["data"]["getMember"].as<JsonArray>()) {
-        String memberId = member["id"].as<String>();
+    for (JsonVariant member : memberData["data"]["members"].as<JsonArray>()) {
+        String memberId = member["memberId"].as<String>();
         String hmac = createHash(memberId, dateStr);
         hmacMap[memberId] = hmac;
     }
@@ -250,10 +252,13 @@ void sendToServer() {
 
             Serial.print("Member ID: ");
             Serial.println(member_id);
-            if (!member_id.isEmpty()) {
-                graphql_query += " a" + String(i) + ": markAttendance(id:" + member_id + ",date:\\\"" + dateStr + "\\\",isPresent:true,hmacSignature:\\\"" + hmacMap[member_id] + "\\\"){ id }";
+            if (member_id) {
+                graphql_query += " a" + String(i) + ": markAttendance(input:{memberId:" +
+                    String(member_id) +
+                    ",date:\\\"" + dateStr +
+                    "\\\",hmacSignature:\\\"" + hmacMap[member_id] +
+                    "\\\"}){ memberId }";
             }
-            // for (int j = 0; j < batchSize && i + j < foundMacAddresses.size(); j++) { }
 
             graphql_query += "}\"}";
 
@@ -307,7 +312,7 @@ String createHash(String id, String dateStr) {
     mbedtls_md_setup(&ctx, md_info, 1);
     mbedtls_md_hmac_starts(&ctx, (const unsigned char*)secretKey, keyLength);
 
-    String message = id + dateStr + "true";
+    String message = id + dateStr;
     mbedtls_md_hmac_update(&ctx, (const unsigned char*)message.c_str(), message.length());
     mbedtls_md_hmac_finish(&ctx, hash);
     mbedtls_md_free(&ctx);
