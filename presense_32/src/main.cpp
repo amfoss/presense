@@ -42,7 +42,7 @@ static void showMetadata(SnifferPacket *snifferPacket) {
   char addr[18] = "00:00:00:00:00:00";
   getMAC(addr, snifferPacket->data, 10);
   
-  Serial.print(" Peer MAC: ");
+  Serial.print("MAC: ");
   Serial.print(addr);
   
   std::string addrStr(addr);

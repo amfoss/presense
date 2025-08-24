@@ -250,20 +250,20 @@ void sendToServer() {
             String macAddress = foundMacAddresses[i].c_str();
             String member_id = memberMap[macAddress];
 
-            Serial.print("Member ID: ");
-            Serial.println(member_id);
-            if (member_id) {
+            if (member_id != "") {
+                Serial.print("\nMember ID: ");
+                Serial.println(member_id);
                 graphql_query += " a" + String(i) + ": markAttendance(input:{memberId:" +
                     String(member_id) +
                     ",date:\\\"" + dateStr +
                     "\\\",hmacSignature:\\\"" + hmacMap[member_id] +
-                    "\\\"}){ memberId }";
+                    "\\\"}){ timeIn timeOut }";
             }
 
             graphql_query += "}\"}";
 
             if (graphql_query == "{\"query\": \"mutation batchAttendance {}\"}") {
-                Serial.println("No data to send");
+                // Serial.println("No data to send");
                 continue;
             }
 
