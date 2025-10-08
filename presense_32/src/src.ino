@@ -27,7 +27,7 @@ const char* password = PASSWORD;
 const char* graphql_endpoint_main = GRAPHQL_ENDPOINT;
 const char* secretKey = SECRET_KEY;
 
-const char* fetchQuery = "{\"query\": \"query { members { memberId macAddress } }\"}";
+const char* fetchQuery = "{\"query\": \"query { allMembers { memberId macAddress } }\"}";
 
 // Member data-related variables
 StaticJsonDocument<2000> memberData;
@@ -169,7 +169,7 @@ void fetchMemberData() {
     deserializeJson(memberData, response);
     http.end();
 
-    for (JsonVariant member : memberData["data"]["members"].as<JsonArray>()) {
+    for (JsonVariant member : memberData["data"]["allMembers"].as<JsonArray>()) {
         String macAddress = member["macAddress"].as<String>();
         macAddress.toLowerCase();
         String memberId = member["memberId"].as<String>();
@@ -192,7 +192,7 @@ void createHMACMap() {
     Serial.print("HMAC date : ");
     Serial.println(dateStr);
 
-    for (JsonVariant member : memberData["data"]["members"].as<JsonArray>()) {
+    for (JsonVariant member : memberData["data"]["allMembers"].as<JsonArray>()) {
         String memberId = member["memberId"].as<String>();
         String hmac = createHash(memberId, dateStr);
         hmacMap[memberId] = hmac;
@@ -263,7 +263,6 @@ void sendToServer() {
             graphql_query += "}\"}";
 
             if (graphql_query == "{\"query\": \"mutation batchAttendance {}\"}") {
-                // Serial.println("No data to send");
                 continue;
             }
 
