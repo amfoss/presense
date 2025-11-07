@@ -26,6 +26,7 @@ const char* username = USERNAME;
 const char* password = PASSWORD;
 const char* graphql_endpoint_main = GRAPHQL_ENDPOINT;
 const char* secretKey = SECRET_KEY;
+const bool is_enterprise = IS_ENTERPRISE;
 
 const char* fetchQuery = "{\"query\": \"query { allMembers { memberId macAddress } }\"}";
 
@@ -58,12 +59,13 @@ void setup() {
     readMacAddress();
     
     // WPA2 Enterprise PEAP setup
-    esp_wifi_sta_wpa2_ent_set_identity((uint8_t*)username, strlen(username));
-    esp_wifi_sta_wpa2_ent_set_username((uint8_t*)username, strlen(username));
-    esp_wifi_sta_wpa2_ent_set_password((uint8_t*)password, strlen(password));
-    
-    esp_wifi_sta_wpa2_ent_enable(); 
-
+    if (is_enterprise) {
+        esp_wifi_sta_wpa2_ent_set_identity((uint8_t*)username, strlen(username));
+        esp_wifi_sta_wpa2_ent_set_username((uint8_t*)username, strlen(username));
+        esp_wifi_sta_wpa2_ent_set_password((uint8_t*)password, strlen(password));
+        
+        esp_wifi_sta_wpa2_ent_enable(); 
+    }
     fetchMemberData();
 
     struct tm currentTime = getTimeInfo();
@@ -99,7 +101,12 @@ void loop() {
 struct tm getTimeInfo() {
     struct tm timeInfo = {0};
 
-    WiFi.begin(ssid);
+    if (is_enterprise) {
+        WiFi.begin(ssid);
+    } else {
+        WiFi.begin(ssid,password);
+    }
+
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.print("-");
@@ -133,7 +140,6 @@ struct tm getTimeInfo() {
     return timeInfo;
 }
 
-
 void readMacAddress(){
     uint8_t baseMac[6];
     esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, baseMac);
@@ -148,18 +154,35 @@ void readMacAddress(){
 
 // Function to fetch member data from server and create a map of mac addresses and member IDs
 void fetchMemberData() {
-    WiFi.begin(ssid);
+    if (is_enterprise) {
+        WiFi.begin(ssid);
+    } else {
+        WiFi.begin(ssid,password);
+    }
+
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.print("-");
     }
 
+    Serial.println("\nConnected to WiFi");
+
     int status = 0;
+    int retryCount = 0;
+    
     http.begin(client, graphql_endpoint_main);
     http.addHeader("Content-Type", "application/json");
+    http.setTimeout(15000);
+    
     while (status <= 0) {
+        Serial.println("Attempting to fetch member data (Retry " + String(retryCount) + ")");
         status = http.POST(fetchQuery);
-        delay(1000);
+        Serial.println("Status: " + String(status));
+        
+        if (status <= 0) {
+            retryCount++;
+            delay(5000);
+        }
     }
 
     Serial.println("Member data fetched");
@@ -230,7 +253,11 @@ void sendToServer() {
 
     
     while (WiFi.status() != WL_CONNECTED) {
-        WiFi.begin(ssid);
+        if (is_enterprise) {
+            WiFi.begin(ssid);
+        } else {
+            WiFi.begin(ssid,password);
+        }
         Serial.print("-");
         delay(10000);
     }
