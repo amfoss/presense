@@ -1,26 +1,24 @@
 #include <Arduino.h>
-#include <WiFiClientSecure.h>
+#include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <esp_wifi.h>
-#include <ArduinoJson.h>
-#include <map>
-#include <iostream>
-#include "time.h"
-#include "mbedtls/md.h"
 #include <esp_wpa2.h>
-#include "include/secrets.h"
+
 #include "include/config.h"
 #include "include/crypto.h"
 #include "include/member.h"
 #include "include/network.h"
+#include "include/secrets.h"
 #include "include/sniffer.h"
 #include "include/time_utils.h"
+#include "mbedtls/md.h"
+#include "time.h"
 
 HTTPClient http;
 WiFiClientSecure client;
 
-struct tm timeinfo;
 char dateStr[11];
 
 JsonDocument memberData;
@@ -32,54 +30,51 @@ esp_timer_handle_t channelHop_timer;
 uint8_t newMACAddress[] = MAC_ADDRESS;
 
 void setup() {
-    Serial.begin(115200);
-    
-    client.setInsecure();
-    client.setHandshakeTimeout(30);
-    
-    WiFi.mode(WIFI_STA); 
+  Serial.begin(115200);
 
-    Serial.print("DEFAULT MAC Address: ");
-    readMacAddress();
+  client.setInsecure();
+  client.setHandshakeTimeout(30);
 
-    esp_err_t err = esp_wifi_set_mac(WIFI_IF_STA, &newMACAddress[0]);
-    if (err == ESP_OK) {
-        Serial.println("Mac Address Changed");
-    }
+  WiFi.mode(WIFI_STA);
 
-    Serial.print("Spoofed MAC Address: ");
-    readMacAddress();
-    
-    if (is_enterprise) {
-        init_peap();
-    }
+  Serial.print("DEFAULT MAC Address: ");
+  readMacAddress();
 
-    fetchMemberData();
+  esp_err_t err = esp_wifi_set_mac(WIFI_IF_STA, &newMACAddress[0]);
+  if (err == ESP_OK) {
+    Serial.println("Mac Address Changed");
+  }
 
-    struct tm currentTime = getTimeInfo();
-    strftime(dateStr, sizeof(dateStr), "%Y-%m-%d", &currentTime);
-    Serial.println("\nDate: " + String(dateStr));
+  Serial.print("Spoofed MAC Address: ");
+  readMacAddress();
 
-    createHMACMap();
+  if (is_enterprise) {
+    init_peap();
+  }
 
-    delay(10);
-    WiFi.mode(WIFI_STA);
+  fetchMemberData();
 
-    esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
-    esp_wifi_set_promiscuous_rx_cb(&sniffer_callback);
-    esp_wifi_set_promiscuous(true);
+  struct tm currentTime = getTimeInfo();
+  strftime(dateStr, sizeof(dateStr), "%Y-%m-%d", &currentTime);
+  Serial.println("\nDate: " + String(dateStr));
 
-    const esp_timer_create_args_t timer_args = {
-        .callback = &channelHop,
-        .arg = NULL,
-        .dispatch_method = ESP_TIMER_TASK,
-        .name = "channel_hop"
-    };
-    esp_timer_create(&timer_args, &channelHop_timer);
-    esp_timer_start_periodic(channelHop_timer, 500 * 1000);
+  createHMACMap();
+
+  delay(10);
+
+  esp_wifi_set_channel(1, WIFI_SECOND_CHAN_NONE);
+  esp_wifi_set_promiscuous_rx_cb(&sniffer_callback);
+  esp_wifi_set_promiscuous(true);
+
+  const esp_timer_create_args_t timer_args = {.callback = &channelHop,
+                                              .arg = NULL,
+                                              .dispatch_method = ESP_TIMER_TASK,
+                                              .name = "channel_hop"};
+  esp_timer_create(&timer_args, &channelHop_timer);
+  esp_timer_start_periodic(channelHop_timer, 500 * 1000);
 }
 
 void loop() {
-    delay(90000);
-    sendToServer();
+  delay(90000);
+  sendToServer();
 }

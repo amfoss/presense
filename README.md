@@ -8,43 +8,70 @@
 
 ### Setup Instructions
 
-To ensure a seamless experience, it's recommended to use **PlatformIO** for managing the ESP32 development environment. You can refer to the [PlatformIO CLI installation guide](https://platformio.org/install/integration) for detailed instructions.
+To ensure a seamless experience, it's recommended to use **PlatformIO** for managing the ESP32 development environment. Install PlatformIO Core via pip:
+
+```sh
+pip install platformio
+```
 
 1. Clone the repository:
     ```sh
     git clone https://github.com/amfoss/presense
     ```
 
-2. Flash the ESP32 using PlatformIO:
-    - Open the project in PlatformIO IDE or use the PlatformIO CLI to build and upload the firmware to the ESP32.
+2. Configure secrets:
+    ```sh
+    cp src/include/secrets.h.sample src/include/secrets.h
+    ```
+    Then edit `src/include/secrets.h` with your configuration values.
+
+3. Build and flash the ESP32 using PlatformIO:
+    ```sh
+    pio run -t upload
+    ```
 
 ### Configuration
 
-Before running the project, ensure the following fields are properly configured:
+Before running the project, copy `src/include/secrets.h.sample` to `src/include/secrets.h` and configure the following variables:
 
-- **SSID**:
+- **SSID**: WiFi network name to connect to
     ```cpp
-    const char* ssid = "your_ssid";
+    #define SSID "wifi_network"
     ```
   
-- **PEAP Password**:
+- **USERNAME**: PEAP/Enterprise WiFi username (leave empty for WPA2-PSK networks)
     ```cpp
-    const char* password = "your_password";
+    #define USERNAME "username"
     ```
   
-- **PEAP Identity/Username**:
+- **PASSWORD**: WiFi password (or PEAP password for enterprise networks)
     ```cpp
-    const char* username = "peap_identity";
+    #define PASSWORD "password"
     ```
 
-- **GraphQL Endpoint URL**:
+- **SECRET_KEY**: Shared secret key for HMAC signature generation (used to authenticate attendance records)
     ```cpp
-    const char* graphql_endpoint_main = "endpoint_url";
+    #define SECRET_KEY "secret_key"
     ```
 
-- **Shared Secret Key**:
+- **GRAPHQL_ENDPOINT**: Backend GraphQL API endpoint URL for fetching member data and submitting attendance
     ```cpp
-    const char* secretKey = "secret_key";
+    #define GRAPHQL_ENDPOINT "api_url"
+    ```
+
+- **TIME_API_KEY**: API key for TimezoneDB service (used to fetch accurate timestamp)
+    ```cpp
+    #define TIME_API_KEY "timezonedb_api_key"
+    ```
+
+- **MAC_ADDRESS**: Custom MAC address to spoof on the ESP32 (hex format)
+    ```cpp
+    #define MAC_ADDRESS {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}
+    ```
+
+- **IS_ENTERPRISE**: Set to `true` for WPA2-Enterprise (PEAP) networks, `false` for WPA2-PSK
+    ```cpp
+    #define IS_ENTERPRISE true
     ```
 
 ### How to Contribute

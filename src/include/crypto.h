@@ -3,9 +3,10 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
+
 #include <map>
 
-extern const char* secretKey;
+extern const char *secretKey;
 extern char dateStr[11];
 extern JsonDocument memberData;
 extern std::map<String, String> hmacMap;
