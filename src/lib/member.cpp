@@ -5,6 +5,7 @@
 #include "../include/secrets.h"
 
 const char *graphql_endpoint_main = GRAPHQL_ENDPOINT;
+const char *root_api_key = ROOT_API_KEY;
 const char *fetchQuery =
     "{\"query\": \"query { allMembers { memberId macAddress } }\"}";
 
@@ -17,6 +18,7 @@ void fetchMemberData() {
   http.begin(client, graphql_endpoint_main);
   http.addHeader("Content-Type", "application/json");
   http.setTimeout(15000);
+  http.addHeader("Authorization", "Bearer " + String(root_api_key));
 
   while (status <= 0) {
     Serial.println("Attempting to fetch member data (Retry " +
@@ -99,6 +101,7 @@ void sendToServer() {
 
       http.begin(client, graphql_endpoint_main);
       http.addHeader("Content-Type", "application/json");
+      http.addHeader("Authorization", "Bearer " + String(root_api_key));
 
       int httpResponseCode = http.POST(graphql_query);
 

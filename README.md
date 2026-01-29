@@ -59,6 +59,11 @@ Before running the project, copy `src/include/secrets.h.sample` to `src/include/
     #define GRAPHQL_ENDPOINT "api_url"
     ```
 
+- **ROOT_API_KEY**: API key for authenticating requests to Root API
+    ```cpp
+    #define ROOT_API_KEY "root_api_key"
+    ```
+
 - **TIME_API_KEY**: API key for TimezoneDB service (used to fetch accurate timestamp)
     ```cpp
     #define TIME_API_KEY "timezonedb_api_key"
